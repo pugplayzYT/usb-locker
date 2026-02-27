@@ -1,0 +1,22 @@
+node_modules/
+dist/
+bin/
+coverage/
+*.js.map
+*.d.ts.map
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Env
+.env
+.env.*
+
+# USB Locker key files (never commit keys!)
+usblocker.key
