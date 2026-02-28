@@ -1,0 +1,180 @@
+name: CI / Build & Release
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Jobs
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── 1. Test ─────────────────────────────────────────────────────────────────
+  # Runs on every push AND pull request.
+  # Must pass before the release job is allowed to proceed.
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  # ── 2. Release ──────────────────────────────────────────────────────────────
+  # Runs only on direct pushes to main/master (not PRs).
+  # GitHub automatically skips the ENTIRE workflow when a commit message
+  # contains [skip ci], so the version-bump commit below never loops.
+  release:
+    name: Build executables & publish release
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: write   # needed to create releases and push the version bump
+
+    steps:
+      - name: Checkout (full history for git push)
+        uses: actions/checkout@v4
+        with:
+          # Use the built-in token so the bot can push the version-bump commit
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Read the current version from package.json ──────────────────────────
+      - name: Read version
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION"   >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION"      >> $GITHUB_OUTPUT
+
+      # ── Compile TypeScript → dist/ ──────────────────────────────────────────
+      - name: Compile TypeScript
+        run: npm run build
+
+      # ── Bundle standalone executables with pkg ──────────────────────────────
+      # pkg cross-compiles for all three platforms from a single Linux runner.
+      - name: Bundle executables
+        run: |
+          mkdir -p bin
+
+          echo "→ Windows x64"
+          npx pkg dist/index.js \
+            --target node18-win-x64 \
+            --output bin/usblocker-win.exe
+
+          echo "→ Linux x64"
+          npx pkg dist/index.js \
+            --target node18-linux-x64 \
+            --output bin/usblocker-linux
+
+          echo "→ macOS x64"
+          npx pkg dist/index.js \
+            --target node18-macos-x64 \
+            --output bin/usblocker-macos
+
+          chmod +x bin/usblocker-linux bin/usblocker-macos
+
+          echo ""
+          echo "Built binaries:"
+          ls -lh bin/
+
+      # ── Publish GitHub release with all three binaries ──────────────────────
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.TAG }}
+          name: "USB Locker ${{ steps.ver.outputs.TAG }}"
+          body: |
+            ## USB Locker ${{ steps.ver.outputs.TAG }}
+
+            Automated release — all tests passed ✅
+
+            ---
+
+            ### 📦 Standalone executables  *(no Node.js required)*
+
+            | Platform | File | How to run |
+            |---|---|---|
+            | **Windows** x64 | `usblocker-win.exe` | Double-click or run from CMD/PowerShell |
+            | **Linux** x64 | `usblocker-linux` | `chmod +x usblocker-linux && ./usblocker-linux` |
+            | **macOS** x64 | `usblocker-macos` | `chmod +x usblocker-macos && ./usblocker-macos` |
+
+            ---
+
+            ### 🔑 Quick start
+
+            ```bash
+            # Encrypt a file (saves AES-256 key to your USB drive)
+            usblocker lock secret.pdf
+
+            # Decrypt — plug in the same USB drive first
+            usblocker unlock secret.pdf.locked
+
+            # See detected USB drives
+            usblocker list-drives
+            ```
+
+            ---
+
+            ### 🔐 How it works
+
+            The decryption key is stored **only** on your USB drive as `usblocker.key`.
+            Without the exact USB plugged in, the file cannot be decrypted.
+            Encryption uses **AES-256-GCM** with a unique random nonce per file.
+          files: |
+            bin/usblocker-win.exe
+            bin/usblocker-linux
+            bin/usblocker-macos
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Bump minor version for the NEXT release ─────────────────────────────
+      # e.g. 1.0.0 → 1.1.0 → 1.2.0 …
+      # The [skip ci] suffix prevents this commit from triggering a new run.
+      - name: Bump version
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Increment minor (1.0.0 → 1.1.0 → 1.2.0 …)
+          npm version minor --no-git-tag-version
+
+          NEXT=$(node -p "require('./package.json').version")
+          echo "Next version will be: $NEXT"
+
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${NEXT} [skip ci]"
+          git push
