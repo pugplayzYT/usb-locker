@@ -60,6 +60,12 @@ export async function unlockCommand(
 
     if (matchingDrive) {
       keyFile = readKeyFromUSB(matchingDrive);
+      if (!keyFile) {
+        console.error(
+          chalk.red(`\n  Failed to read key from matching drive: ${matchingDrive.path}`)
+        );
+        process.exit(1);
+      }
       console.log(
         chalk.green(
           `\n  ✓ Matching key found on: ${matchingDrive.label} (${matchingDrive.path})`,
