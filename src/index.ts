@@ -13,12 +13,15 @@ console.log('');
 
 const program = new Command();
 
+/* eslint-disable-next-line @typescript-eslint/no-var-requires */
+const { version } = require('../package.json');
+
 program
   .name('usblocker')
   .description(
     chalk.blue('USB Locker — encrypt files with your USB drive as the key'),
   )
-  .version('1.0.0');
+  .version(version);
 
 // ── lock ──────────────────────────────────────────────────────────────────────
 program
