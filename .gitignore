@@ -21,5 +21,6 @@ Thumbs.db
 # USB Locker key files (never commit keys!)
 usblocker.key
 
-# Gemini AI workspace rules
+# AI workspace rules (Gemini / Claude Code)
 .gemini.md
+CLAUDE.md
