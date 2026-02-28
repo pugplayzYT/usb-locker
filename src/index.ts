@@ -88,57 +88,83 @@ program
   });
 
 // ── Interactive mode (double-click / no-args) ─────────────────────────────────
+async function pause(msg = 'Press Enter to return to menu…'): Promise<void> {
+  await inquirer
+    .prompt([{ type: 'input', name: '_', message: chalk.gray(msg) }])
+    .catch(() => { /* Ctrl+C — ignore */ });
+}
+
 async function runInteractiveMode(): Promise<void> {
-  const { action } = await inquirer.prompt<{ action: string }>([
-    {
-      type: 'list',
-      name: 'action',
-      message: 'What would you like to do?',
-      choices: [
-        { name: '🔒  Lock a file', value: 'lock' },
-        { name: '🔓  Unlock a file', value: 'unlock' },
-        { name: '💾  List USB drives', value: 'list-drives' },
-        { name: '❌  Exit', value: 'exit' },
-      ],
-    },
-  ]);
+  // Keep looping until the user explicitly chooses Exit
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { action } = await inquirer.prompt<{ action: string }>([
+      {
+        type: 'list',
+        name: 'action',
+        message: 'What would you like to do?',
+        choices: [
+          { name: '🔒  Lock a file', value: 'lock' },
+          { name: '🔓  Unlock a file', value: 'unlock' },
+          { name: '💾  List USB drives', value: 'list-drives' },
+          { name: '❌  Exit', value: 'exit' },
+        ],
+      },
+    ]);
 
-  if (action === 'exit') return;
+    if (action === 'exit') break;
 
-  if (action === 'list-drives') {
-    const drives = listUSBDrives();
-    if (drives.length === 0) {
-      console.log(chalk.yellow('\n  No USB drives detected.\n'));
-    } else {
-      console.log(chalk.bold.blue('\n  Detected USB drives:\n'));
-      drives.forEach((drive, i) => {
-        console.log(
-          `    ${i + 1}. ${chalk.cyan(drive.label)}  ${chalk.gray(drive.path)}`,
-        );
-      });
-      console.log('');
+    // ── List drives ───────────────────────────────────────────────────────────
+    if (action === 'list-drives') {
+      const drives = listUSBDrives();
+      if (drives.length === 0) {
+        console.log(chalk.yellow('\n  No USB drives detected.\n'));
+      } else {
+        console.log(chalk.bold.blue('\n  Detected USB drives:\n'));
+        drives.forEach((drive, i) => {
+          console.log(
+            `    ${i + 1}. ${chalk.cyan(drive.label)}  ${chalk.gray(drive.path)}`,
+          );
+        });
+        console.log('');
+      }
+      await pause();
+      continue;
     }
-    return;
+
+    // ── Lock / Unlock ─────────────────────────────────────────────────────────
+    const { file } = await inquirer.prompt<{ file: string }>([
+      {
+        type: 'input',
+        name: 'file',
+        message:
+          action === 'lock'
+            ? 'Path to the file you want to lock (leave empty to go back):'
+            : 'Path to the .locked file you want to unlock (leave empty to go back):',
+      },
+    ]);
+
+    if (!file.trim()) continue; // ← back to main menu
+
+    try {
+      if (action === 'lock') {
+        await lockCommand(file.trim(), {});
+      } else {
+        await unlockCommand(file.trim(), {});
+      }
+      await pause();
+    } catch (error) {
+      console.log('');
+      console.log(
+        chalk.red(`  ✖  ${error instanceof Error ? error.message : String(error)}`),
+      );
+      console.log('');
+      await pause();
+    }
   }
 
-  const { file } = await inquirer.prompt<{ file: string }>([
-    {
-      type: 'input',
-      name: 'file',
-      message:
-        action === 'lock'
-          ? 'Path to the file you want to lock:'
-          : 'Path to the .locked file you want to unlock:',
-      validate: (input: string) =>
-        input.trim().length > 0 ? true : 'Please enter a file path',
-    },
-  ]);
-
-  if (action === 'lock') {
-    await lockCommand(file.trim(), {});
-  } else {
-    await unlockCommand(file.trim(), {});
-  }
+  // Keep the CMD window open so the user can read the last output before it closes
+  await pause('Press Enter to exit…');
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -146,18 +172,11 @@ const isInteractive = process.argv.length <= 2;
 
 if (isInteractive) {
   // Launched with no arguments (e.g. double-clicked exe) — run interactive menu
-  runInteractiveMode()
-    .catch((error: unknown) => {
-      if (error instanceof Error) {
-        console.error(chalk.red(`\nError: ${error.message}`));
-      }
-    })
-    .finally(() => {
-      // Keep the CMD window open so the user can read the output before it closes
-      inquirer
-        .prompt([{ type: 'input', name: '_', message: chalk.gray('Press Enter to exit…') }])
-        .catch(() => { /* window already closing */ });
-    });
+  runInteractiveMode().catch((error: unknown) => {
+    if (error instanceof Error) {
+      console.error(chalk.red(`\nFatal error: ${error.message}`));
+    }
+  });
 } else {
   program.parse(process.argv);
 }

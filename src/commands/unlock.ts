@@ -16,8 +16,7 @@ export async function unlockCommand(
   options: UnlockOptions,
 ): Promise<void> {
   if (!fs.existsSync(filePath)) {
-    console.error(chalk.red(`Error: File not found: ${filePath}`));
-    process.exit(1);
+    throw new Error(`File not found: ${filePath}`);
   }
 
   console.log(chalk.bold.blue('\n  USB Locker — Unlock File'));
@@ -31,10 +30,8 @@ export async function unlockCommand(
     metadata = readEncryptedFileMetadata(filePath);
     metaSpinner.succeed('Metadata read');
   } catch {
-    metaSpinner.fail(
-      chalk.red('Not a valid USB Locker file. Was this encrypted with usblocker?'),
-    );
-    process.exit(1);
+    metaSpinner.fail(chalk.red('Not a valid USB Locker file.'));
+    throw new Error('Not a valid USB Locker file — was this encrypted with usblocker?');
   }
 
   console.log(`\n  Original name : ${chalk.cyan(metadata.originalFilename)}`);
@@ -48,10 +45,7 @@ export async function unlockCommand(
     const drive = { path: options.drive, label: 'Specified Drive' };
     keyFile = readKeyFromUSB(drive);
     if (!keyFile) {
-      console.error(
-        chalk.red(`\n  No USB Locker key found on drive: ${options.drive}`),
-      );
-      process.exit(1);
+      throw new Error(`No USB Locker key found on drive: ${options.drive}`);
     }
   } else {
     const scanSpinner = ora('Scanning USB drives for matching key…').start();
@@ -76,10 +70,7 @@ export async function unlockCommand(
       const drives = listUSBDrives();
 
       if (drives.length === 0) {
-        console.error(
-          chalk.red('\n  No USB drives found. Insert the correct USB drive and retry.'),
-        );
-        process.exit(1);
+        throw new Error('No USB drives found — insert the correct USB drive and retry.');
       }
 
       console.log(
@@ -104,8 +95,7 @@ export async function unlockCommand(
 
       keyFile = readKeyFromUSB(drive);
       if (!keyFile) {
-        console.error(chalk.red('  No USB Locker key found on the selected drive.'));
-        process.exit(1);
+        throw new Error('No USB Locker key found on the selected drive.');
       }
     }
   }
@@ -168,21 +158,11 @@ export async function unlockCommand(
     decryptSpinner.fail(chalk.red('Decryption failed.'));
     if (error instanceof Error) {
       if (error.message.includes('Key mismatch')) {
-        console.error(
-          chalk.red(
-            '  Wrong USB drive — this is not the USB that was used to lock the file.',
-          ),
-        );
+        throw new Error('Wrong USB drive — this is not the USB that was used to lock the file.');
       } else if (error.message.includes('corrupted')) {
-        console.error(
-          chalk.red(
-            '  The file appears to be corrupted or tampered with.',
-          ),
-        );
-      } else {
-        console.error(chalk.red(`  ${error.message}`));
+        throw new Error('The file appears to be corrupted or tampered with.');
       }
     }
-    process.exit(1);
+    throw error;
   }
 }

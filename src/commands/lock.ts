@@ -22,14 +22,12 @@ export async function lockCommand(
 ): Promise<void> {
   // ── Validate input file ────────────────────────────────────────────────────
   if (!fs.existsSync(filePath)) {
-    console.error(chalk.red(`Error: File not found: ${filePath}`));
-    process.exit(1);
+    throw new Error(`File not found: ${filePath}`);
   }
 
   const stat = fs.statSync(filePath);
   if (!stat.isFile()) {
-    console.error(chalk.red(`Error: Path is not a regular file: ${filePath}`));
-    process.exit(1);
+    throw new Error(`Path is not a regular file: ${filePath}`);
   }
 
   if (filePath.endsWith(LOCKED_EXTENSION)) {
@@ -43,7 +41,7 @@ export async function lockCommand(
         default: false,
       },
     ]);
-    if (!proceed) process.exit(0);
+    if (!proceed) return; // user cancelled — caller returns to menu
   }
 
   console.log(chalk.bold.blue('\n  USB Locker — Lock File'));
@@ -60,12 +58,7 @@ export async function lockCommand(
     spinner.stop();
 
     if (drives.length === 0) {
-      console.error(
-        chalk.red(
-          '\n  No USB drives detected. Insert a USB drive and try again.',
-        ),
-      );
-      process.exit(1);
+      throw new Error('No USB drives detected — insert a USB drive and try again.');
     }
 
     const { drive } = await inquirer.prompt<{ drive: USBDrive }>([
