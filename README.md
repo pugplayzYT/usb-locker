@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/github/v/release/pugplayzYT/usb-locker?style=for-the-badge&logo=github&color=89b4fa" alt="Latest Release">
   <img src="https://img.shields.io/badge/node-%3E%3D18-a6e3a1?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js 18+">
   <img src="https://img.shields.io/badge/AES--256--GCM-encrypted-f38ba8?style=for-the-badge&logo=shield&logoColor=white" alt="AES-256-GCM">
-  <img src="https://img.shields.io/github/license/pugplayzYT/usb-locker?style=for-the-badge&color=cba6f7" alt="MIT License">
+  <img src="https://img.shields.io/badge/license-MIT-cba6f7?style=for-the-badge" alt="MIT License">
 </p>
 
 <p align="center">
