@@ -6,8 +6,20 @@ name: CI / Build & Release
 on:
   push:
     branches: [main, master]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, master]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/ci.yml'
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Jobs
@@ -109,7 +121,28 @@ jobs:
           echo "Built binaries:"
           ls -lh bin/
 
-      # ── Publish GitHub release with all three binaries ──────────────────────
+      # ── Create Installers (deb & pkg) ───────────────────────────────────────
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Package Linux (.deb)
+        run: |
+          fpm -s dir -t deb -n usblocker -v ${{ steps.ver.outputs.VERSION }} -a amd64 --prefix /usr/local/bin bin/usblocker-linux=usblocker
+          fpm -s dir -t rpm -n usblocker -v ${{ steps.ver.outputs.VERSION }} -a x86_64 --prefix /usr/local/bin bin/usblocker-linux=usblocker
+          mv *.deb bin/
+          mv *.rpm bin/
+
+      - name: Package macOS (.tar.gz)
+        # We tar.gz the macOS binary to preserve the +x permissions out-of-the-box
+        run: |
+          cd bin
+          tar -czvf usblocker-macos.tar.gz usblocker-macos
+          cd ..
+
+      # ── Publish GitHub release with binaries and installers ─────────────────
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -122,13 +155,14 @@ jobs:
 
             ---
 
-            ### 📦 Standalone executables  *(no Node.js required)*
+            ### 📦 Application Installers
 
-            | Platform | File | How to run |
+            | Platform | Installer | Notes |
             |---|---|---|
             | **Windows** x64 | `usblocker-win.exe` | Double-click or run from CMD/PowerShell |
-            | **Linux** x64 | `usblocker-linux` | `chmod +x usblocker-linux && ./usblocker-linux` |
-            | **macOS** x64 | `usblocker-macos` | `chmod +x usblocker-macos && ./usblocker-macos` |
+            | **Linux** (Debian/Ubuntu) | `usblocker_${{ steps.ver.outputs.VERSION }}_amd64.deb` | Install with `sudo dpkg -i` or double-click |
+            | **Linux** (RHEL/Fedora) | `usblocker-${{ steps.ver.outputs.VERSION }}-1.x86_64.rpm` | Install with `sudo rpm -i` |
+            | **macOS** x64 | `usblocker-macos.tar.gz` | Extracts to an executable with +x permission |
 
             ---
 
@@ -154,8 +188,9 @@ jobs:
             Encryption uses **AES-256-GCM** with a unique random nonce per file.
           files: |
             bin/usblocker-win.exe
-            bin/usblocker-linux
-            bin/usblocker-macos
+            bin/usblocker_*.deb
+            bin/usblocker-*.rpm
+            bin/usblocker-macos.tar.gz
           draft: false
           prerelease: false
         env:
