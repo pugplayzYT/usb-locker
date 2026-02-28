@@ -24,3 +24,8 @@ usblocker.key
 # AI workspace rules (Gemini / Claude Code)
 .gemini.md
 CLAUDE.md
+
+# Demo generation tools (GIFs are committed, sources are not)
+docs/*.html
+docs/capture.mjs
+docs/*-frames/
