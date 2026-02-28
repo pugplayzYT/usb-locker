@@ -67,6 +67,9 @@ npm install
 npm run bundle        # produces bin/usblocker-win.exe, bin/usblocker-linux, bin/usblocker-macos
 ```
 
+> **Note on "Unknown Publisher" warnings:** 
+> Because the standalone executables are compiled locally and not signed with a paid developer certificate, your operating system (such as Windows SmartScreen) may display an "Unknown Publisher" warning when you try to run the `.exe`. This is completely normal for unsigned apps. Since this tool is fully open-source, you are highly encouraged to read through the source code in this repository to verify how it works before building and using the executable.
+
 ---
 
 ## Usage
