@@ -5,6 +5,12 @@ import { lockCommand } from './commands/lock';
 import { unlockCommand } from './commands/unlock';
 import { listUSBDrives } from './lib/usb';
 
+// ── Welcome banner ────────────────────────────────────────────────────────────
+console.log('');
+console.log(chalk.bold.blue('  🔐 Hello! What files do you want to encrypt? 😊'));
+console.log(chalk.gray('  ─────────────────────────────────────────────'));
+console.log('');
+
 const program = new Command();
 
 program
